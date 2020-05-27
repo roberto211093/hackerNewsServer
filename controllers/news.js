@@ -1,15 +1,15 @@
 const News = require("../models/news")
+const Users = require("../models/users")
 
 const saveNews = async (req, res) => {
-
     try {
         const objectNews = req.body
         objectNews.hits.forEach((news) => {
             const {title, story_title, url, story_url, author, created_at, objectID} = news;
-            if(!title && !story_title){
+            if (!title && !story_title) {
                 return;
             }
-            if(!url && !story_url){
+            if (!url && !story_url) {
                 return;
             }
             const objNew = {
@@ -28,13 +28,48 @@ const saveNews = async (req, res) => {
     }
 }
 
+const deleteNews = async (req, res) => {
+    if (!req.headers.authorization) {
+        return res.status(403).send({message: "Peticion no tiene headers de Auth."});
+    }
+    const {idNews} = req.body;
+    const token = req.headers.authorization.replace(/['"]+/g, "");
+    try {
+        const user = await Users.findOne({token});
+        user.idNewsDeleted.push(idNews);
+        user.save();
+        res.status(200).send({message: "Success"});
+    } catch (error) {
+        res.status(500).send({message: "Error del servidor"});
+    }
+}
+
 const getNews = async (req, res) => {
-    try{
-        const news = await News.find()
-        if (!news) {
+    if (!req.headers.authorization) {
+        return res.status(403).send({message: "Peticion no tiene headers de Auth."});
+    }
+    const token = req.headers.authorization.replace(/['"]+/g, "");
+    let dataUser = {
+        token,
+        idNewsDeleted: []
+    }
+    try {
+        const news = await News.find().sort({created_at: 'desc'});
+        const user = await Users.findOne({token});
+        if (!!!user) {
+            Users.create(dataUser);
+        }
+        if (news.length === 0) {
             res.status(404).send({message: "No existen noticias"});
         } else {
-            res.status(200).send({news: news, message: "Success"});
+            let newToReturn = news;
+            if (user) {
+                const {idNewsDeleted} = user;
+                if (idNewsDeleted.length > 0) {
+                    newToReturn = news.filter((element) => !idNewsDeleted.includes(element.objectID));
+                }
+            }
+            res.status(200).send({news: newToReturn, message: "Success"});
         }
     } catch (error) {
         res.status(500).send({message: "Error del servidor"});
@@ -42,6 +77,7 @@ const getNews = async (req, res) => {
 }
 
 module.exports = {
-    getNews,
-    saveNews
+    saveNews,
+    deleteNews,
+    getNews
 }
