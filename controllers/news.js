@@ -1,27 +1,32 @@
 const News = require("../models/news")
 const Users = require("../models/users")
+const request = require('request');
 
-const saveNews = async (req, res) => {
+const getNewsHn = async (req, res) => {
     try {
-        const objectNews = req.body
-        objectNews.hits.forEach((news) => {
-            const {title, story_title, url, story_url, author, created_at, objectID} = news;
-            if (!title && !story_title) {
-                return;
+        await request('https://hn.algolia.com/api/v1/search_by_date?query=nodejs', {json: true}, (e, r, body) => {
+            if (e) {
+                res.status(500).send({message: "Error del servidor"});
             }
-            if (!url && !story_url) {
-                return;
-            }
-            const objNew = {
-                title: title ? title : story_title,
-                url: url ? url : story_url,
-                author: author,
-                created_at: created_at,
-                objectID: objectID
-            }
-            News.create(objNew);
+            const objectNews = body.hits;
+            objectNews.forEach((news, index) => {
+                const {title, story_title, url, story_url, author, created_at, objectID} = news;
+                if (!title && !story_title) {
+                    return;
+                }
+                if (!url && !story_url) {
+                    return;
+                }
+                const objNew = {
+                    title: title ? title : story_title,
+                    url: url ? url : story_url,
+                    author: author,
+                    created_at: created_at,
+                    objectID: objectID
+                }
+                News.create(objNew);
+            });
         });
-
         res.status(201).send({message: "Success"});
     } catch (error) {
         res.status(500).send({message: "Error del servidor"});
@@ -77,7 +82,7 @@ const getNews = async (req, res) => {
 }
 
 module.exports = {
-    saveNews,
+    getNewsHn,
     deleteNews,
     getNews
 }
