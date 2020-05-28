@@ -2,15 +2,15 @@ const News = require("../models/news")
 const Users = require("../models/users")
 const request = require('request');
 
-const getNewsHn = (res) => {
+const getNewsHn = (req, res) => {
     try {
         request('https://hn.algolia.com/api/v1/search_by_date?query=nodejs', {json: true}, async (e, r, body) => {
             if (e) {
                 res.status(500).send({message: "Error del servidor"});
             }
             const objectNews = body.hits;
-            let getResponseHists = []
-            let getResponseHistsId = []
+            let getHistsHn = []
+            let getHistsHnId = []
 
             objectNews.map(news => {
                 const {title, story_title, url, story_url, author, created_at, objectID} = news;
@@ -20,8 +20,8 @@ const getNewsHn = (res) => {
                 if (!url && !story_url) {
                     return;
                 }
-                getResponseHistsId.push(objectID)
-                getResponseHists.push({
+                getHistsHnId.push(objectID)
+                getHistsHn.push({
                     title: title ?? story_title,
                     url: url ?? story_url,
                     author: author,
@@ -30,14 +30,14 @@ const getNewsHn = (res) => {
                 })
             });
 
-            let getDatabaseHists = await News.find( { objectID : { $in : getResponseHistsId } }, {objectID: 1, _id: 0} );
-            let getDatabaseHistsIds = []
-            getDatabaseHists.map(resp => getDatabaseHistsIds.push(resp.objectID))
+            let getHistsDB = await News.find( { objectID : { $in : getHistsHnId } }, {objectID: 1, _id: 0} );
+            let getIdsDB = []
+            getHistsDB.map(resp => getIdsDB.push(resp.objectID))
 
-            let items = []         
-            getResponseHists.map(resp => {
-                if(!getDatabaseHistsIds.includes(resp.objectID)){
-                    items.push(resp)
+            let items = []
+            getHistsHn.map(item => {
+                if(!getIdsDB.includes(item.objectID)){
+                    items.push(item)
                 }
             })
 
