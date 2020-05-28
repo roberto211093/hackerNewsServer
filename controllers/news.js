@@ -2,14 +2,17 @@ const News = require("../models/news")
 const Users = require("../models/users")
 const request = require('request');
 
-const getNewsHn = async (req, res) => {
+const getNewsHn = (res) => {
     try {
-        await request('https://hn.algolia.com/api/v1/search_by_date?query=nodejs', {json: true}, (e, r, body) => {
+        request('https://hn.algolia.com/api/v1/search_by_date?query=nodejs', {json: true}, async (e, r, body) => {
             if (e) {
                 res.status(500).send({message: "Error del servidor"});
             }
             const objectNews = body.hits;
-            objectNews.forEach((news, index) => {
+            let getResponseHists = []
+            let getResponseHistsId = []
+
+            objectNews.map(news => {
                 const {title, story_title, url, story_url, author, created_at, objectID} = news;
                 if (!title && !story_title) {
                     return;
@@ -17,15 +20,30 @@ const getNewsHn = async (req, res) => {
                 if (!url && !story_url) {
                     return;
                 }
-                const objNew = {
-                    title: title ? title : story_title,
-                    url: url ? url : story_url,
+                getResponseHistsId.push(objectID)
+                getResponseHists.push({
+                    title: title ?? story_title,
+                    url: url ?? story_url,
                     author: author,
                     created_at: created_at,
                     objectID: objectID
-                }
-                News.create(objNew);
+                })
             });
+
+            let getDatabaseHists = await News.find( { objectID : { $in : getResponseHistsId } }, {objectID: 1, _id: 0} );
+            let getDatabaseHistsIds = []
+            getDatabaseHists.map(resp => getDatabaseHistsIds.push(resp.objectID))
+
+            let items = []         
+            getResponseHists.map(resp => {
+                if(!getDatabaseHistsIds.includes(resp.objectID)){
+                    items.push(resp)
+                }
+            })
+
+            if(items.length > 0){
+                News.create(items);
+            }
         });
         res.status(201).send({message: "Success"});
     } catch (error) {
@@ -35,7 +53,7 @@ const getNewsHn = async (req, res) => {
 
 const deleteNews = async (req, res) => {
     if (!req.headers.authorization) {
-        return res.status(403).send({message: "Peticion no tiene headers de Auth."});
+        return res.status(403).send({message: "No posee autorización"});
     }
     const {idNews} = req.body;
     const token = req.headers.authorization.replace(/['"]+/g, "");
@@ -51,7 +69,7 @@ const deleteNews = async (req, res) => {
 
 const getNews = async (req, res) => {
     if (!req.headers.authorization) {
-        return res.status(403).send({message: "Peticion no tiene headers de Auth."});
+        return res.status(403).send({message: "No posee autorización"});
     }
     const token = req.headers.authorization.replace(/['"]+/g, "");
     let dataUser = {
